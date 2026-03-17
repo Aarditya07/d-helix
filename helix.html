@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DNA Structure Explorer </title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --cyan:#00d4ff;--orange:#ff6a1a;--bg:#03080f;
+  --A:#ff4d6d;--T:#4d94ff;--G:#ffd700;--C:#39ff8e;
+  --panel:rgba(4,14,30,0.92);--border:rgba(0,212,255,0.15);
+}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:#e8f4ff;font-family:'Inter',sans-serif;overflow-x:hidden;}
+
+/* ── FIXED 3D CANVAS LAYER ── */
+#helix-wrap{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#helix-canvas{display:block;width:100%;height:100%;}
+
+/* ── NAVBAR ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 36px;
+  background:linear-gradient(180deg,rgba(3,8,15,0.97) 0%,transparent 100%);
+  border-bottom:1px solid var(--border);
+}
+.nav-logo{display:flex;align-items:center;gap:12px;}
+.nav-logo h1{font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--cyan);letter-spacing:3px;}
+.nav-logo .sub{font-size:9px;color:rgba(0,212,255,0.4);letter-spacing:3px;margin-top:2px;}
+.nav-team{font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(0,212,255,0.5);border:1px solid rgba(0,212,255,0.2);padding:7px 16px;border-radius:4px;letter-spacing:2px;}
+
+/* ── VIEW CONTROLS (fixed right) ── */
+#view-controls{
+  position:fixed;top:50%;right:24px;transform:translateY(-50%);
+  z-index:200;display:flex;flex-direction:column;gap:7px;
+  pointer-events:auto;
+}
+.ctrl-lbl{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.3);letter-spacing:3px;text-align:center;margin-bottom:3px;}
+.vbtn{
+  font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;
+  padding:9px 16px;border-radius:5px;cursor:pointer;min-width:86px;text-align:center;
+  background:rgba(0,20,40,0.75);border:1px solid rgba(0,212,255,0.2);
+  color:rgba(0,212,255,0.5);transition:all .2s;
+}
+.vbtn:hover{background:rgba(0,212,255,0.1);color:#fff;border-color:rgba(0,212,255,0.6);}
+.vbtn.active{background:rgba(0,212,255,0.16);color:#fff;border-color:var(--cyan);box-shadow:0 0 14px rgba(0,212,255,0.25);}
+
+/* ── TOOLTIP ── */
+#tooltip{
+  position:fixed;z-index:400;display:none;pointer-events:none;
+  background:rgba(3,10,22,0.98);border:1px solid rgba(0,212,255,0.35);
+  border-left:3px solid var(--cyan);border-radius:7px;
+  padding:12px 16px;max-width:270px;
+  box-shadow:0 0 30px rgba(0,212,255,0.12);
+  font-family:'Share Tech Mono',monospace;
+}
+.tt-tag{font-size:9px;letter-spacing:3px;margin-bottom:5px;}
+.tt-name{font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;margin-bottom:6px;line-height:1.4;}
+.tt-desc{font-size:11px;color:rgba(185,215,235,0.85);line-height:1.7;font-family:'Inter',sans-serif;}
+
+/* ── VIEW LABEL ── */
+#view-label{
+  position:fixed;top:76px;left:50%;transform:translateX(-50%);
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:5px;
+  color:rgba(0,212,255,0.25);z-index:200;pointer-events:none;
+}
+
+/* ── SCROLL SECTIONS ── */
+.scroll-layer{position:relative;z-index:10;pointer-events:none;}
+
+/* HERO */
+#hero{
+  height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;pointer-events:none;padding:0 20px;
+}
+#hero .team-tag{
+  font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:4px;
+  color:rgba(0,212,255,0.5);border:1px solid rgba(0,212,255,0.2);
+  padding:7px 20px;border-radius:3px;margin-bottom:28px;
+  display:inline-block;
+}
+#hero h2{
+  font-family:'Orbitron',sans-serif;font-size:clamp(32px,5vw,64px);font-weight:900;
+  color:#fff;letter-spacing:4px;line-height:1.1;margin-bottom:16px;
+  text-shadow:0 0 60px rgba(0,212,255,0.3);
+}
+#hero h2 span{color:var(--cyan);}
+#hero p{
+  font-size:16px;color:rgba(200,225,240,0.65);max-width:500px;
+  line-height:1.7;margin-bottom:40px;font-weight:300;
+}
+.scroll-cue{
+  font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;
+  color:rgba(0,212,255,0.35);display:flex;flex-direction:column;align-items:center;gap:8px;
+  animation:bounce 2s ease-in-out infinite;
+}
+@keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(8px);}}
+.scroll-cue svg{width:18px;height:18px;stroke:rgba(0,212,255,0.35);}
+
+/* SECTIONS WRAPPER */
+#sections{padding:0 0 120px;}
+
+.section{
+  min-height:100vh;display:flex;align-items:center;
+  padding:80px 60px;pointer-events:auto;
+}
+.section:nth-child(even){justify-content:flex-end;}
+.section:nth-child(odd){justify-content:flex-start;}
+
+.section-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;padding:40px 44px;
+  max-width:480px;width:100%;
+  backdrop-filter:blur(20px);
+  box-shadow:0 0 60px rgba(0,0,0,0.5),0 0 30px rgba(0,212,255,0.04);
+  transition:border-color .3s;
+}
+.section-card:hover{border-color:rgba(0,212,255,0.35);}
+
+.sec-num{
+  font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:4px;
+  color:rgba(0,212,255,0.3);margin-bottom:10px;
+}
+.sec-title{
+  font-family:'Orbitron',sans-serif;font-size:22px;font-weight:700;
+  color:#fff;margin-bottom:18px;line-height:1.3;
+}
+.sec-title span{color:var(--cyan);}
+.sec-body{font-size:14px;color:rgba(200,222,240,0.75);line-height:1.8;margin-bottom:22px;font-weight:300;}
+
+.bullet-list{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:22px;}
+.bullet-list li{
+  display:flex;align-items:flex-start;gap:10px;
+  font-size:13px;color:rgba(185,215,235,0.8);line-height:1.6;
+}
+.bullet-list li::before{content:'›';color:var(--cyan);font-size:16px;margin-top:-1px;flex-shrink:0;}
+
+/* BASE PAIR VISUAL */
+.bp-visual{display:flex;align-items:center;justify-content:center;gap:0;margin:20px 0;flex-wrap:wrap;}
+.base-pill{
+  padding:9px 18px;border-radius:6px;font-family:'Orbitron',sans-serif;
+  font-size:15px;font-weight:700;color:#fff;
+  display:flex;align-items:center;gap:8px;
+}
+.bp-connector{
+  font-family:'Share Tech Mono',monospace;font-size:11px;
+  color:rgba(180,240,255,0.6);padding:0 10px;letter-spacing:1px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.bp-connector .hb{font-size:9px;color:rgba(180,240,255,0.4);}
+
+/* STATS GRID */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
+.stat-box{
+  background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.12);
+  border-radius:8px;padding:14px 16px;
+}
+.stat-box .sv{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;color:var(--cyan);}
+.stat-box .sk{font-size:10px;color:rgba(0,212,255,0.45);letter-spacing:1px;margin-top:4px;font-family:'Share Tech Mono',monospace;}
+
+/* H-BOND TABLE */
+.hbond-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px;}
+.hbond-table th{
+  font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;
+  color:rgba(0,212,255,0.4);padding:8px 12px;text-align:left;
+  border-bottom:1px solid rgba(0,212,255,0.12);
+}
+.hbond-table td{padding:10px 12px;border-bottom:1px solid rgba(0,212,255,0.06);color:rgba(200,222,240,0.8);}
+.hbond-table tr:last-child td{border-bottom:none;}
+.hbond-dot-row{display:flex;gap:4px;align-items:center;}
+.hbond-dot{width:8px;height:8px;border-radius:50%;background:rgba(180,240,255,0.7);border:1px solid rgba(130,210,255,0.5);}
+
+/* PAIRING RULE GRID */
+.rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;}
+.rule-item{
+  border-radius:8px;padding:12px 14px;
+  border:1px solid rgba(255,255,255,0.06);
+}
+.rule-item .r-base{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:700;}
+.rule-item .r-pair{font-size:11px;color:rgba(200,222,240,0.6);margin-top:4px;font-family:'Share Tech Mono',monospace;}
+
+/* LEGEND PANEL (bottom left fixed) */
+#legend{
+  position:fixed;bottom:22px;left:22px;z-index:200;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:14px 18px;min-width:205px;
+  pointer-events:none;
+}
+.leg-title{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:rgba(0,212,255,0.35);margin-bottom:10px;}
+.leg-item{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(200,222,240,0.75);}
+.leg-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+.leg-sq{width:14px;height:9px;border-radius:2px;flex-shrink:0;}
+.leg-sep{border-top:1px solid rgba(0,212,255,0.1);margin:8px 0;}
+
+/* BOTTOM HINT */
+#hint{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;
+  color:rgba(0,212,255,0.2);z-index:200;pointer-events:none;white-space:nowrap;
+}
+
+/* scanlines */
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.015) 2px,rgba(0,0,0,0.015) 4px);pointer-events:none;z-index:500;}
+
+/* responsive */
+@media(max-width:700px){
+  .section{padding:60px 20px;}
+  #hero h2{font-size:28px;}
+  .section-card{padding:28px 22px;}
+  #view-controls{right:8px;}
+  nav{padding:12px 18px;}
+  #legend{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- FIXED 3D HELIX -->
+<div id="helix-wrap"><canvas id="helix-canvas"></canvas></div>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-logo">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+      <circle cx="13" cy="13" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.4"/>
+      <path d="M7 5 Q13 9 19 5 M7 21 Q13 17 19 21" stroke="#00d4ff" stroke-width="1.5" fill="none" opacity="0.7"/>
+      <line x1="7" y1="10" x2="19" y2="10" stroke="#ff4d6d" stroke-width="1.5" opacity="0.7"/>
+      <line x1="7" y1="13" x2="19" y2="13" stroke="#ffd700" stroke-width="1.5" opacity="0.7"/>
+      <line x1="7" y1="16" x2="19" y2="16" stroke="#4d94ff" stroke-width="1.5" opacity="0.7"/>
+    </svg>
+    <div>
+      <h1>DNA STRUCTURE EXPLORER</h1>
+      <div class="sub">INTERACTIVE MOLECULAR MODEL</div>
+    </div>
+  </div>
+  <div class="nav-team"></div>
+</nav>
+
+<!-- VIEW CONTROLS -->
+<div id="view-controls">
+  <div class="ctrl-lbl">VIEW</div>
+  <button class="vbtn active" data-view="perspective">◈ 3D</button>
+  <button class="vbtn" data-view="top">▲ TOP</button>
+  <button class="vbtn" data-view="front">■ FRONT</button>
+  <button class="vbtn" data-view="side">◀ SIDE</button>
+  <button class="vbtn" data-view="iso">◆ ISO</button>
+</div>
+
+<div id="view-label">PERSPECTIVE VIEW</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip">
+  <div class="tt-tag" id="tt-tag">STRUCTURE</div>
+  <div class="tt-name" id="tt-name">—</div>
+  <div class="tt-desc" id="tt-desc">—</div>
+</div>
+
+<!-- LEGEND -->
+<div id="legend">
+  <div class="leg-title">LEGEND</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#00d4ff;box-shadow:0 0 5px #00d4ff55"></div>Strand A (5′→3′)</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#ff6a1a;box-shadow:0 0 5px #ff6a1a55"></div>Strand B (3′→5′)</div>
+  <div class="leg-sep"></div>
+  <div class="leg-item"><div class="leg-sq" style="background:#ff4d6d"></div>Adenine (A)</div>
+  <div class="leg-item"><div class="leg-sq" style="background:#4d94ff"></div>Thymine (T)</div>
+  <div class="leg-item"><div class="leg-sq" style="background:#ffd700"></div>Guanine (G)</div>
+  <div class="leg-item"><div class="leg-sq" style="background:#39ff8e"></div>Cytosine (C)</div>
+  <div class="leg-sep"></div>
+  <div class="leg-item"><div class="leg-dot" style="background:rgba(180,240,255,0.8);width:8px;height:8px;margin-left:2px;"></div>Hydrogen Bond (H···)</div>
+</div>
+
+<div id="hint">HOVER HELIX TO EXPLORE &nbsp;·&nbsp; MOVE MOUSE TO TILT &nbsp;·&nbsp; SCROLL TO LEARN</div>
+
+<!-- SCROLL CONTENT -->
+<div class="scroll-layer">
+
+  <!-- HERO -->
+  <section id="hero">
+    <div class="team-tag"></div>
+    <h2>The <span>Double</span><br/>Helix</h2>
+    <p>Explore the molecular structure of life itself — an interactive 3D model of Deoxyribonucleic Acid, the blueprint of every living organism.</p>
+    <div class="scroll-cue">
+      SCROLL TO EXPLORE
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+    </div>
+  </section>
+
+  <!-- SECTIONS -->
+  <div id="sections">
+
+    <!-- 01 Double Helix -->
+    <div class="section">
+      <div class="section-card">
+        <div class="sec-num">01 — OVERVIEW</div>
+        <h2 class="sec-title">The <span>Double Helix</span></h2>
+        <p class="sec-body">DNA (Deoxyribonucleic Acid) is the hereditary material in humans and almost all other organisms. Its iconic double helix structure was first described by Watson and Crick in 1953, building on Rosalind Franklin's X-ray crystallography data.</p>
+        <ul class="bullet-list">
+          <li>Two complementary strands wound around each other</li>
+          <li>Right-handed helical structure (B-DNA form)</li>
+          <li>Approximately 3.4 Å (Ångströms) rise per base pair</li>
+          <li>One full turn every 10.5 base pairs</li>
+        </ul>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="sv">3.2B</div><div class="sk">BASE PAIRS (HUMAN)</div></div>
+          <div class="stat-box"><div class="sv">~2 nm</div><div class="sk">HELIX DIAMETER</div></div>
+          <div class="stat-box"><div class="sv">3.4 Å</div><div class="sk">RISE PER BASE</div></div>
+          <div class="stat-box"><div class="sv">34.3°</div><div class="sk">TWIST ANGLE</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 Backbone -->
+    <div class="section">
+      <div class="section-card">
+        <div class="sec-num">02 — STRUCTURE</div>
+        <h2 class="sec-title">Sugar-Phosphate <span>Backbone</span></h2>
+        <p class="sec-body">The structural framework of DNA consists of alternating deoxyribose sugar and phosphate groups. This backbone forms the outer "rails" of the DNA ladder and runs in opposite directions on each strand — a property called antiparallel orientation.</p>
+        <ul class="bullet-list">
+          <li>Phosphate groups (PO₄³⁻) carry negative charges</li>
+          <li>Deoxyribose sugar lacks the 2′-OH group found in RNA</li>
+          <li>Linked together by phosphodiester bonds</li>
+          <li>Strand A runs 5′→3′, Strand B runs 3′→5′</li>
+        </ul>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="sv" style="color:#00d4ff;">5′→3′</div><div class="sk">STRAND A DIRECTION</div></div>
+          <div class="stat-box"><div class="sv" style="color:#ff6a1a;">3′→5′</div><div class="sk">STRAND B DIRECTION</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 Bases -->
+    <div class="section">
+      <div class="section-card">
+        <div class="sec-num">03 — NITROGENOUS BASES</div>
+        <h2 class="sec-title">The Four <span>Bases</span></h2>
+        <p class="sec-body">The four nitrogenous bases store the genetic code. They pair specifically across the two strands, forming the "rungs" of the DNA ladder. Purines (two rings) always pair with Pyrimidines (one ring).</p>
+        <div class="bp-visual">
+          <div class="base-pill" style="background:rgba(255,77,109,0.2);border:1px solid #ff4d6d;"><span style="color:#ff4d6d;">A</span><span style="font-family:'Share Tech Mono';font-size:10px;color:rgba(255,150,170,0.7)">Adenine</span></div>
+          <div class="bp-connector"><span>═══</span><span class="hb">H · · H</span></div>
+          <div class="base-pill" style="background:rgba(77,148,255,0.2);border:1px solid #4d94ff;"><span style="color:#4d94ff;">T</span><span style="font-family:'Share Tech Mono';font-size:10px;color:rgba(120,170,255,0.7)">Thymine</span></div>
+        </div>
+        <div class="bp-visual" style="margin-top:0;">
+          <div class="base-pill" style="background:rgba(255,215,0,0.15);border:1px solid #ffd700;"><span style="color:#ffd700;">G</span><span style="font-family:'Share Tech Mono';font-size:10px;color:rgba(255,230,100,0.7)">Guanine</span></div>
+          <div class="bp-connector"><span>═══</span><span class="hb">H · · · H</span></div>
+          <div class="base-pill" style="background:rgba(57,255,142,0.15);border:1px solid #39ff8e;"><span style="color:#39ff8e;">C</span><span style="font-family:'Share Tech Mono';font-size:10px;color:rgba(100,255,160,0.7)">Cytosine</span></div>
+        </div>
+        <ul class="bullet-list" style="margin-top:16px;">
+          <li>Purines: Adenine (A) and Guanine (G) — double ring</li>
+          <li>Pyrimidines: Thymine (T) and Cytosine (C) — single ring</li>
+          <li>Purine always pairs with Pyrimidine (size complementarity)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 04 Hydrogen Bonds -->
+    <div class="section">
+      <div class="section-card">
+        <div class="sec-num">04 — HYDROGEN BONDS</div>
+        <h2 class="sec-title"><span>Hydrogen</span> Bonds</h2>
+        <p class="sec-body">The two strands are held together by hydrogen bonds (shown as H··· on the 3D model) between complementary base pairs. Though individually weak, the sheer number of bonds across millions of base pairs gives DNA remarkable stability.</p>
+        <table class="hbond-table">
+          <thead><tr><th>BASE PAIR</th><th>H-BONDS</th><th>DOTS</th><th>STRENGTH</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><span style="color:#ff4d6d;font-weight:600;">A</span> – <span style="color:#4d94ff;font-weight:600;">T</span></td>
+              <td style="color:rgba(200,222,240,0.9);">2 bonds</td>
+              <td><div class="hbond-dot-row"><div class="hbond-dot"></div><div class="hbond-dot"></div></div></td>
+              <td style="color:rgba(255,209,102,0.8);">Moderate</td>
+            </tr>
+            <tr>
+              <td><span style="color:#ffd700;font-weight:600;">G</span> – <span style="color:#39ff8e;font-weight:600;">C</span></td>
+              <td style="color:rgba(200,222,240,0.9);">3 bonds</td>
+              <td><div class="hbond-dot-row"><div class="hbond-dot"></div><div class="hbond-dot"></div><div class="hbond-dot"></div></div></td>
+              <td style="color:rgba(57,255,142,0.8);">Strong</td>
+            </tr>
+          </tbody>
+        </table>
+        <ul class="bullet-list" style="margin-top:18px;">
+          <li>Broken during DNA replication by helicase enzymes</li>
+          <li>High G-C regions have higher melting temperatures</li>
+          <li>Weak bonds allow the helix to "unzip" easily</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 05 Chargaff's Rules -->
+    <div class="section">
+      <div class="section-card">
+        <div class="sec-num">05 — BASE PAIRING RULES</div>
+        <h2 class="sec-title">Chargaff's <span>Rules</span></h2>
+        <p class="sec-body">Erwin Chargaff discovered that in any DNA sample, the amount of Adenine equals Thymine, and Guanine equals Cytosine. This complementarity is the foundation of DNA replication fidelity and ensures the genetic code is faithfully copied.</p>
+        <div class="rule-grid">
+          <div class="rule-item" style="background:rgba(255,77,109,0.08);border-color:rgba(255,77,109,0.2);">
+            <div class="r-base" style="color:#ff4d6d;">A = T</div>
+            <div class="r-pair">2 hydrogen bonds</div>
+          </div>
+          <div class="rule-item" style="background:rgba(255,215,0,0.08);border-color:rgba(255,215,0,0.2);">
+            <div class="r-base" style="color:#ffd700;">G = C</div>
+            <div class="r-pair">3 hydrogen bonds</div>
+          </div>
+          <div class="rule-item" style="background:rgba(0,212,255,0.06);border-color:rgba(0,212,255,0.15);">
+            <div class="r-base" style="color:var(--cyan);font-size:13px;">Purine</div>
+            <div class="r-pair">↔ Pyrimidine</div>
+          </div>
+          <div class="rule-item" style="background:rgba(0,212,255,0.06);border-color:rgba(0,212,255,0.15);">
+            <div class="r-base" style="color:var(--cyan);font-size:13px;">%A+G</div>
+            <div class="r-pair">= %T+C always</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 Code of Life -->
+    <div class="section">
+      <div class="section-card">
+        <div class="sec-num">06 — THE CODE OF LIFE</div>
+        <h2 class="sec-title">Blueprint of <span>Life</span></h2>
+        <p class="sec-body">This elegant double helix contains all the instructions needed to build and maintain a living organism. From DNA replication to transcription and translation, every biological process begins here.</p>
+        <ul class="bullet-list">
+          <li>DNA → mRNA (Transcription by RNA Polymerase)</li>
+          <li>mRNA → Protein (Translation by Ribosomes)</li>
+          <li>DNA replication ensures genetic continuity</li>
+          <li>Mutations in DNA can cause disease or drive evolution</li>
+        </ul>
+        <div class="stats-grid">
+          <div class="stat-box"><div class="sv">3.2B</div><div class="sk">BASE PAIRS IN HUMAN DNA</div></div>
+          <div class="stat-box"><div class="sv">~25K</div><div class="sk">PROTEIN-CODING GENES</div></div>
+          <div class="stat-box"><div class="sv">99.9%</div><div class="sk">IDENTICAL BETWEEN HUMANS</div></div>
+          <div class="stat-box"><div class="sv">6 ft</div><div class="sk">DNA LENGTH PER CELL</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sections -->
+</div><!-- /scroll-layer -->
+
+<script>
+// ═══════════════════════════════════════════════
+//  3D HELIX ENGINE
+// ═══════════════════════════════════════════════
+const canvas=document.getElementById('helix-canvas');
+const ctx=canvas.getContext('2d');
+const tooltip=document.getElementById('tooltip');
+const viewLabelEl=document.getElementById('view-label');
+let W,H;
+function resize(){
+  W=canvas.width=window.innerWidth;
+  H=canvas.height=window.innerHeight;
+}
+resize(); window.addEventListener('resize',resize);
+
+const BASE_COLORS={A:'#ff4d6d',T:'#4d94ff',G:'#ffd700',C:'#39ff8e'};
+const BASE_RGB={A:'255,77,109',T:'77,148,255',G:'255,215,0',C:'57,255,142'};
+const COMPLEMENT={A:'T',T:'A',G:'C',C:'G'};
+const SEQ_A=['A','T','G','C','A','G','T','C','G','A','T','G','C','T','A','G','C','T','A','G','C','A','T','G'];
+
+const PARTS={
+  backbone_a: {tag:'STRUCTURAL',col:'#00d4ff',name:"Sugar-Phosphate Backbone (5′→3′)",desc:"Strand A — alternating deoxyribose sugars and phosphate groups forming the outer rail, running 5′ to 3′. Part of the antiparallel double helix."},
+  backbone_b: {tag:'STRUCTURAL',col:'#ff6a1a',name:"Sugar-Phosphate Backbone (3′→5′)",desc:"Strand B — the complementary backbone running antiparallel (3′ to 5′). Both strands together form the iconic double helix discovered by Watson & Crick in 1953."},
+  base_A:     {tag:'PURINE BASE',col:'#ff4d6d',name:"Adenine (A)",desc:"A double-ring purine base. Adenine always pairs with Thymine via 2 hydrogen bonds (A=T). One of the two purine bases in DNA alongside Guanine."},
+  base_T:     {tag:'PYRIMIDINE BASE',col:'#4d94ff',name:"Thymine (T)",desc:"A single-ring pyrimidine base. Thymine pairs with Adenine via 2 hydrogen bonds. Unique to DNA — in RNA it is replaced by Uracil (U)."},
+  base_G:     {tag:'PURINE BASE',col:'#ffd700',name:"Guanine (G)",desc:"A double-ring purine base. Guanine pairs with Cytosine via 3 hydrogen bonds (G≡C). Stronger bond makes G-C rich regions more thermally stable."},
+  base_C:     {tag:'PYRIMIDINE BASE',col:'#39ff8e',name:"Cytosine (C)",desc:"A single-ring pyrimidine base. Cytosine pairs with Guanine via 3 hydrogen bonds. High G-C content raises the DNA melting temperature significantly."},
+  hydrogen:   {tag:'CHEMICAL BOND',col:'#b8f0ff',name:"Hydrogen Bond (H···)",desc:"Weak electrostatic bonds shown as H··· on the helix. A–T: 2 bonds, G–C: 3 bonds. They're individually weak but collectively stabilise the helix, and are broken by helicase during DNA replication."},
+  phosphate:  {tag:'CHEMICAL GROUP',col:'#00d4ff',name:"Phosphate Group (PO₄³⁻)",desc:"Negatively charged group giving DNA its acidic nature. Links the 3′ carbon of one deoxyribose to the 5′ carbon of the next via phosphodiester bonds."},
+  deoxyribose:{tag:'PENTOSE SUGAR',col:'#ff6a1a',name:"Deoxyribose Sugar (C₅H₁₀O₄)",desc:"A 5-carbon (pentose) sugar. 'Deoxy' means it lacks the 2′-OH group found in ribose (in RNA), making DNA more chemically stable than RNA."},
+  major_groove:{tag:'GROOVE',col:'#c8b0ff',name:"Major Groove (~22 Å wide)",desc:"The wider channel between backbone strands. Transcription factors and restriction enzymes bind here to read base sequences without unwinding the helix."},
+  minor_groove:{tag:'GROOVE',col:'#c8b0ff',name:"Minor Groove (~12 Å wide)",desc:"The narrower channel. Some antibiotics (e.g. netropsin) and regulatory proteins bind here for structural DNA recognition."},
+};
+
+let tiltX=0,tiltY=0,targetTiltX=0,targetTiltY=0;
+let angle=0,currentView='perspective',hoveredPart=null,hitZones=[];
+const NUM_RUNGS=24,HELIX_R=80,HELIX_H=480,TWIST=(Math.PI*2)/10.5;
+
+const VIEWS={
+  perspective:{rx:0.12,ry:0,rz:0,scale:1.0,label:'PERSPECTIVE VIEW'},
+  top:        {rx:Math.PI/2-0.05,ry:0,rz:0,scale:0.78,label:'TOP VIEW'},
+  front:      {rx:0,ry:0,rz:0,scale:1.0,label:'FRONT VIEW'},
+  side:       {rx:0,ry:Math.PI/2,rz:0,scale:1.0,label:'SIDE VIEW'},
+  iso:        {rx:0.52,ry:Math.PI/6,rz:0.15,scale:0.88,label:'ISOMETRIC VIEW'}
+};
+
+function rotX(p,a){return[p[0],p[1]*Math.cos(a)-p[2]*Math.sin(a),p[1]*Math.sin(a)+p[2]*Math.cos(a)];}
+function rotY(p,a){return[p[0]*Math.cos(a)+p[2]*Math.sin(a),p[1],-p[0]*Math.sin(a)+p[2]*Math.cos(a)];}
+function rotZ(p,a){return[p[0]*Math.cos(a)-p[1]*Math.sin(a),p[0]*Math.sin(a)+p[1]*Math.cos(a),p[2]];}
+function project(p,sc){const fov=700,z=p[2]+fov,s=(fov/z)*sc;return[p[0]*s+W/2,p[1]*s+H/2,p[2],s];}
+
+function buildPoints(vc){
+  const pts=[],fTilt=currentView==='perspective';
+  for(let i=0;i<=NUM_RUNGS;i++){
+    const t=i/NUM_RUNGS,y=(t-0.5)*HELIX_H;
+    const a1=angle+i*TWIST,a2=a1+Math.PI;
+    const r1=[Math.cos(a1)*HELIX_R,y,Math.sin(a1)*HELIX_R];
+    const r2=[Math.cos(a2)*HELIX_R,y,Math.sin(a2)*HELIX_R];
+    const xf=r=>{let q=rotY(r,vc.ry);q=rotX(q,vc.rx+(fTilt?tiltX:0));q=rotY(q,fTilt?tiltY:0);return rotZ(q,vc.rz);};
+    const bA=SEQ_A[i%SEQ_A.length];
+    pts.push({p1:xf(r1),p2:xf(r2),i,bA,bB:COMPLEMENT[bA]});
+  }
+  return pts;
+}
+
+// roundRect polyfill
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.beginPath();
+    this.moveTo(x+r,y);this.lineTo(x+w-r,y);this.arcTo(x+w,y,x+w,y+r,r);
+    this.lineTo(x+w,y+h-r);this.arcTo(x+w,y+h,x+w-r,y+h,r);
+    this.lineTo(x+r,y+h);this.arcTo(x,y+h,x,y+h-r,r);
+    this.lineTo(x,y+r);this.arcTo(x,y,x+r,y,r);this.closePath();
+  };
+}
+
+let particles=null;
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // Background
+  const bg=ctx.createRadialGradient(W/2,H*0.45,0,W/2,H/2,Math.max(W,H)*0.75);
+  bg.addColorStop(0,'#071220');bg.addColorStop(0.55,'#040c18');bg.addColorStop(1,'#020810');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.lineWidth=0.5;ctx.strokeStyle='rgba(0,150,255,0.03)';
+  for(let x=0;x<W;x+=70){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=70){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // Particles
+  if(!particles)particles=Array.from({length:60},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.5+0.3,o:Math.random()*0.18+0.03,vx:(Math.random()-0.5)*0.13,vy:(Math.random()-0.5)*0.13}));
+  for(const p of particles){
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(0,200,255,${p.o})`;ctx.fill();
+  }
+
+  tiltX+=(targetTiltX-tiltX)*0.055;
+  tiltY+=(targetTiltY-tiltY)*0.055;
+
+  const vc=VIEWS[currentView];
+  const pts=buildPoints(vc);
+  hitZones=[];
+
+  // Sort by Z
+  let segs=[];
+  for(let i=0;i<pts.length-1;i++){
+    const c=pts[i],n=pts[i+1];
+    segs.push({c,n,zAvg:(c.p1[2]+c.p2[2]+n.p1[2]+n.p2[2])/4});
+  }
+  segs.sort((a,b)=>a.zAvg-b.zAvg);
+
+  // BACKBONE
+  for(const {c,n} of segs){
+    const pa=project(c.p1,vc.scale),pb=project(n.p1,vc.scale);
+    const pc2=project(c.p2,vc.scale),pd=project(n.p2,vc.scale);
+    const br=Math.min(1,(c.p1[2]+500)/800);
+    const s=(pa[3]+pb[3])/2;
+    ctx.beginPath();ctx.moveTo(pa[0],pa[1]);ctx.lineTo(pb[0],pb[1]);
+    ctx.strokeStyle=`rgba(0,${Math.floor(180+br*75)},255,${0.3+br*0.6})`;
+    ctx.lineWidth=s*7.5;ctx.lineCap='round';ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pc2[0],pc2[1]);ctx.lineTo(pd[0],pd[1]);
+    ctx.strokeStyle=`rgba(255,${Math.floor(80+br*60)},0,${0.3+br*0.6})`;
+    ctx.lineWidth=s*7.5;ctx.lineCap='round';ctx.stroke();
+    hitZones.push({x:(pa[0]+pb[0])/2,y:(pa[1]+pb[1])/2,r:12,part:'backbone_a'});
+    hitZones.push({x:(pc2[0]+pd[0])/2,y:(pc2[1]+pd[1])/2,r:12,part:'backbone_b'});
+  }
+
+  // BASE PAIRS + H-BONDS + NODES
+  for(let i=0;i<pts.length;i++){
+    const c=pts[i];
+    const a=project(c.p1,vc.scale),b=project(c.p2,vc.scale);
+    const br=Math.min(1,(c.p1[2]+500)/800);
+    const s=(a[3]+b[3])/2;
+    const mid=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    const rgbA=BASE_RGB[c.bA],rgbB=BASE_RGB[c.bB];
+    const isAT=(c.bA==='A'||c.bA==='T');
+    const hCount=isAT?2:3;
+
+    // Left rung half (A colour)
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(mid[0],mid[1]);
+    ctx.strokeStyle=`rgba(${rgbA},${0.55+br*0.35})`;
+    ctx.lineWidth=s*4;ctx.lineCap='round';ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+
+    // Right rung half (B colour)
+    ctx.beginPath();ctx.moveTo(mid[0],mid[1]);ctx.lineTo(b[0],b[1]);
+    ctx.strokeStyle=`rgba(${rgbB},${0.55+br*0.35})`;
+    ctx.lineWidth=s*4;ctx.lineCap='round';ctx.setLineDash([4,4]);ctx.stroke();ctx.setLineDash([]);
+
+    hitZones.push({x:a[0]+(mid[0]-a[0])*0.5,y:a[1]+(mid[1]-a[1])*0.5,r:14,part:'base_'+c.bA});
+    hitZones.push({x:mid[0]+(b[0]-mid[0])*0.5,y:mid[1]+(b[1]-mid[1])*0.5,r:14,part:'base_'+c.bB});
+
+    // H-bond dots + labels
+    for(let h=1;h<=hCount;h++){
+      const t=h/(hCount+1);
+      const hx=a[0]+(b[0]-a[0])*t,hy=a[1]+(b[1]-a[1])*t;
+      const hr=s*3;
+      ctx.beginPath();ctx.arc(hx,hy,hr,0,Math.PI*2);
+      ctx.fillStyle=`rgba(200,240,255,${0.55+br*0.4})`;ctx.fill();
+      ctx.strokeStyle=`rgba(130,210,255,${0.45+br*0.4})`;ctx.lineWidth=0.8;ctx.stroke();
+      if(br>0.5&&s>0.52){
+        const fs=Math.max(7,Math.round(s*9+4));
+        const side=h%2===0?1:-1;
+        ctx.save();
+        ctx.font=`${fs}px "Share Tech Mono"`;
+        ctx.fillStyle=`rgba(160,230,255,${0.45+br*0.3})`;
+        ctx.textAlign=side>0?'left':'right';ctx.textBaseline='middle';
+        ctx.fillText('H···',hx+(hr+9)*side,hy-2);
+        ctx.restore();
+      }
+      if(h===1)hitZones.push({x:hx,y:hy,r:hr+6,part:'hydrogen'});
+    }
+
+    // Phosphate node (A side)
+    const nr=s*6.5;
+    ctx.beginPath();ctx.arc(a[0],a[1],nr,0,Math.PI*2);
+    ctx.fillStyle=`rgba(0,${Math.floor(155+br*65)},255,${0.8*br+0.15})`;ctx.fill();
+    ctx.strokeStyle=`rgba(0,210,255,${0.5*br+0.2})`;ctx.lineWidth=1;ctx.stroke();
+    hitZones.push({x:a[0],y:a[1],r:nr+4,part:'phosphate'});
+
+    // Deoxyribose node (B side)
+    ctx.beginPath();ctx.arc(b[0],b[1],nr,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,${Math.floor(85+br*45)},20,${0.8*br+0.15})`;ctx.fill();
+    ctx.strokeStyle=`rgba(255,140,60,${0.5*br+0.2})`;ctx.lineWidth=1;ctx.stroke();
+    hitZones.push({x:b[0],y:b[1],r:nr+4,part:'deoxyribose'});
+
+    // Base pills with letters
+    const dist=nr*1.75;
+    const dx=mid[0]-a[0],dy=mid[1]-a[1];
+    const len=Math.sqrt(dx*dx+dy*dy)||1;
+    const ux=dx/len,uy=dy/len;
+    const bsz=s*5.2;
+
+    const ax2=a[0]+ux*dist,ay2=a[1]+uy*dist;
+    ctx.roundRect(ax2-bsz*0.95,ay2-bsz*0.58,bsz*1.9,bsz*1.16,bsz*0.32);
+    ctx.fillStyle=`rgba(${rgbA},${0.68+br*0.2})`;ctx.fill();
+    ctx.strokeStyle=BASE_COLORS[c.bA];ctx.lineWidth=0.9;ctx.stroke();
+    if(s>0.5){
+      ctx.save();ctx.font=`bold ${Math.round(bsz)}px "Orbitron",sans-serif`;
+      ctx.fillStyle=`rgba(255,255,255,${0.92*br+0.05})`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(c.bA,ax2,ay2);ctx.restore();
+    }
+    hitZones.push({x:ax2,y:ay2,r:bsz+4,part:'base_'+c.bA});
+
+    const bx2=b[0]-ux*dist,by2=b[1]-uy*dist;
+    ctx.roundRect(bx2-bsz*0.95,by2-bsz*0.58,bsz*1.9,bsz*1.16,bsz*0.32);
+    ctx.fillStyle=`rgba(${rgbB},${0.68+br*0.2})`;ctx.fill();
+    ctx.strokeStyle=BASE_COLORS[c.bB];ctx.lineWidth=0.9;ctx.stroke();
+    if(s>0.5){
+      ctx.save();ctx.font=`bold ${Math.round(bsz)}px "Orbitron",sans-serif`;
+      ctx.fillStyle=`rgba(255,255,255,${0.92*br+0.05})`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(c.bB,bx2,by2);ctx.restore();
+    }
+    hitZones.push({x:bx2,y:by2,r:bsz+4,part:'base_'+c.bB});
+  }
+
+  // Groove labels
+  if(currentView==='perspective'){
+    const mid=Math.floor(pts.length/2);
+    const cp=pts[mid];
+    if(cp){
+      const pa=project(cp.p1,vc.scale),pb=project(cp.p2,vc.scale);
+      ctx.font='10px "Share Tech Mono"';ctx.fillStyle='rgba(200,180,255,0.2)';
+      const ox=(pa[0]+pb[0])/2+115,oy=(pa[1]+pb[1])/2;
+      ctx.fillText('◀ MAJOR GROOVE',ox,oy);
+      hitZones.push({x:ox+55,y:oy,r:45,part:'major_groove'});
+      const cp2=pts[mid+2]||cp;
+      const qa=project(cp2.p1,vc.scale),qb=project(cp2.p2,vc.scale);
+      const ox2=(qa[0]+qb[0])/2-158,oy2=(qa[1]+qb[1])/2;
+      ctx.fillText('MINOR GROOVE ▶',ox2,oy2);
+      hitZones.push({x:ox2+60,y:oy2,r:45,part:'minor_groove'});
+    }
+  }
+
+  // Hover glow
+  if(hoveredPart){
+    for(const z of hitZones){
+      if(z.part===hoveredPart){
+        ctx.beginPath();ctx.arc(z.x,z.y,z.r+9,0,Math.PI*2);
+        ctx.strokeStyle='rgba(0,220,255,0.4)';ctx.lineWidth=2;ctx.stroke();
+        ctx.beginPath();ctx.arc(z.x,z.y,z.r+18,0,Math.PI*2);
+        ctx.strokeStyle='rgba(0,220,255,0.1)';ctx.lineWidth=1;ctx.stroke();
+      }
+    }
+  }
+
+  // 5′/3′ labels
+  if(currentView==='perspective'||currentView==='front'){
+    const top=project(pts[0].p1,vc.scale),bot=project(pts[pts.length-1].p1,vc.scale);
+    ctx.font='11px "Share Tech Mono"';ctx.fillStyle='rgba(0,212,255,0.3)';
+    ctx.fillText("5′",top[0]+20,top[1]);
+    ctx.fillText("3′",bot[0]+20,bot[1]);
+  }
+
+  angle+=0.007;
+  requestAnimationFrame(draw);
+}
+
+// ── MOUSE ──
+document.addEventListener('mousemove',e=>{
+  targetTiltX=(e.clientY/H-0.5)*0.55;
+  targetTiltY=(e.clientX/W-0.5)*0.55;
+  let found=null;
+  for(let i=hitZones.length-1;i>=0;i--){
+    const z=hitZones[i],dx=e.clientX-z.x,dy=e.clientY-z.y;
+    if(dx*dx+dy*dy<z.r*z.r){found=z.part;break;}
+  }
+  hoveredPart=found;
+  if(found&&PARTS[found]){
+    const p=PARTS[found];
+    document.getElementById('tt-tag').textContent=p.tag;
+    document.getElementById('tt-tag').style.color=p.col;
+    document.getElementById('tt-name').textContent=p.name;
+    document.getElementById('tt-name').style.color=p.col;
+    document.getElementById('tooltip').style.borderLeftColor=p.col;
+    document.getElementById('tt-desc').textContent=p.desc;
+    tooltip.style.display='block';
+    let tx=e.clientX+18,ty=e.clientY-14;
+    if(tx+290>W)tx=e.clientX-295;
+    if(ty+150>H)ty=H-155;
+    tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';
+  }else{
+    tooltip.style.display='none';
+  }
+});
+document.addEventListener('mouseleave',()=>{tooltip.style.display='none';hoveredPart=null;});
+
+// ── VIEW BUTTONS ──
+document.querySelectorAll('.vbtn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentView=btn.dataset.view;
+    viewLabelEl.textContent=VIEWS[currentView].label;
+  });
+});
+
+// ── SCROLL: dim helix when reading sections ──
+window.addEventListener('scroll',()=>{
+  const scrollY=window.scrollY;
+  const heroH=window.innerHeight;
+  const dim=Math.min(0.45,Math.max(0,(scrollY-heroH*0.4)/(heroH*0.6))*0.45);
+  document.getElementById('helix-wrap').style.opacity=1-dim;
+});
+
+draw();
+</script>
+</body>
+</html>
